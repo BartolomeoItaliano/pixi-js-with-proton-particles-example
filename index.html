@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<script type="text/javascript" src="./proton.min.js"></script>
+<script type="text/javascript" src="./pixi.min.js"></script>
+<link rel="stylesheet" type="text/css" href="./styles.css">
+<canvas id="testCanvas"></canvas>
+
+<script>
+    var canvas;
+    var proton;
+    var renderer;
+    var emitter;
+    var symbolTexture;
+    var pixiRenderer;
+    var pixiStage = new PIXI.Container();
+    var frames = [];
+    var FRAMES_AMOUNT = 12;
+
+    PIXI.loader
+        .add('./images/coin-spritesheet.json')
+        .load(Main);
+
+    function Main(resources) {
+
+
+        /**
+         * Collect frames from loaded sprite sheet
+         */
+        for (let i = 0; i < FRAMES_AMOUNT; i++) {
+            let texture = PIXI.Texture.fromFrame("coin"+(i + 1) + '.png');
+            frames.push(texture);
+        }
+
+        canvas = document.getElementById("testCanvas");
+        pixiRenderer = new PIXI.autoDetectRenderer(1280, 720, {view: canvas});
+        canvas.width = 1280;
+        canvas.height = 720;
+
+        initializeProtonBehavior();
+        createRenderer();
+
+        const ticker = new PIXI.ticker.Ticker();
+        ticker.add(tick);
+        ticker.start();
+    }
+
+    function initializeProtonBehavior() {
+        proton = new Proton;
+        emitter = new Proton.Emitter();
+        emitter.rate = new Proton.Rate(30);
+        emitter.addInitialize(new Proton.Mass(10));
+        emitter.addInitialize(new Proton.Life(5, 2));
+        emitter.addInitialize(new Proton.Velocity(new Proton.Span(1, 2), new Proton.Span(90, 270), 'polar'));
+
+        symbolTexture = PIXI.Texture.fromImage("./images/example1.png");
+
+        emitter.addBehaviour(new Proton.Gravity(4),
+            new Proton.Rotate(Proton.getSpan(0, 180)),
+            new Proton.Scale(Proton.getSpan(0.2, 0.6)),
+            new Proton.Alpha(1, 0, Infinity, Proton.easeInBack)
+        );
+        emitter.p.x = canvas.width / 2;
+        emitter.p.y = 100;
+        emitter.emit('once');
+        setInterval(function () {
+            emitter.emit('once');
+        }, 3000);
+        proton.addEmitter(emitter);
+    }
+
+    function createRenderer() {
+        renderer = new Proton.CanvasRenderer(canvas);
+        renderer.width = 1280;
+        renderer.height = 720;
+        renderer.onProtonUpdate = function () {
+        };
+
+        /**
+         * @onParticleCreated
+         * Here create pixi object and add it as property to particle
+         */
+        renderer.onParticleCreated = function (particle) {
+            particle.pixiMovie = new PIXI.extras.MovieClip(frames);
+            particle.pixiMovie.play();
+            particle.pixiMovie.animationSpeed = 0.3;
+            particle.pixiMovie.anchor = new PIXI.Point(0.5, 0.5);
+            pixiStage.addChild(particle.pixiMovie);
+        };
+
+        /**
+         * @onParticleUpdate
+         * Here rewrite all proton particle features on pixi object
+         */
+        renderer.onParticleUpdate = function (particle) {
+            particle.pixiMovie.position.x = particle.p.x;
+            particle.pixiMovie.position.y = particle.p.y;
+            particle.pixiMovie.scale.x = particle.scale;
+            particle.pixiMovie.scale.y = particle.scale;
+            particle.pixiMovie.alpha = particle.alpha;
+            particle.pixiMovie.rotation = particle.rotation;
+        };
+
+        renderer.onParticleDead = function (particle) {
+            pixiStage.removeChild(particle.pixiMovie);
+        };
+
+        proton.addRenderer(renderer);
+    }
+
+    function tick() {
+        pixiRenderer.render(pixiStage);
+        proton.update();
+    }
+</script>
+</body>
+</html>
